@@ -1,0 +1,93 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Update trust policy when new accounts are created or invited in AWS Organizations
+Parameters:
+  AssumeRoleName:
+    Type: String
+    Description: Name of the IAM role to assume in the target account (case sensitive)
+  UpdateRoleName:
+    Type: String
+    Description: Name of the IAM role to update in the target account (case sensitive)
+  TrustPolicy:
+    Type: String
+    Description: JSON string representing the trust policy to apply to the role being updated
+  LogLevel:
+    Default: Info
+    Type: String
+    Description: 'Log level of the lambda output, one of: Debug, Info, Warning, Error, Critical'
+Resources:
+  EventSource:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: Organization Invite or Create Account events will trigger trust policy updates
+      EventPattern:
+        source:
+          - aws.organizations
+        detail-type:
+          - AWS API Call via CloudTrail
+        detail:
+          eventSource:
+            - organizations.amazonaws.com
+          eventName:
+            - InviteAccountToOrganization
+            - CreateAccount
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt LambdaFunction.Arn
+          Id: OrgInvite
+  LambdaPermissions:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref LambdaFunction
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt EventSource.Arn
+  LambdaIamRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Path: /
+  LambdaIamPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: awsOrg
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Action:
+            - organizations:DescribeCreateAccountStatus
+            Resource: "*"
+          - Effect: Allow
+            Action:
+              - logs:CreateLogGroup
+              - logs:CreateLogStream
+              - logs:PutLogEvents
+            Resource: !Sub arn:${AWS::Partition}:logs:*:*:*
+          - Effect: Allow
+            Action:
+              - sts:AssumeRole
+            Resource: !Sub arn:${AWS::Partition}:iam::*:role/${AssumeRoleName}
+      Roles:
+        - Ref: LambdaIamRole
+  LambdaFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Handler: new-account-trust-policy.lambda_handler
+      Role: !GetAtt LambdaIamRole.Arn
+      Code: new-account-trust-policy.py
+      Runtime: python3.6
+      Timeout: 300
+      Environment:
+        Variables:
+          ASSUME_ROLE_NAME: !Ref AssumeRoleName
+          UPDATE_ROLE_NAME: !Ref UpdateRoleName
+          TRUST_POLICY: !Ref TrustPolicy
+          LOG_LEVEL: !Ref LogLevel

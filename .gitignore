@@ -10,3 +10,6 @@
 
 # ignore this file
 !tfmodule-template.tf
+
+# cloudformation package
+package.yaml
