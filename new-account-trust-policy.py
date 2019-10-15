@@ -14,6 +14,8 @@ import time
 import boto3
 import botocore
 
+BOTOCORE_CACHE_DIR = os.environ.get('BOTOCORE_CACHE_DIR')
+
 DEFAULT_LOG_LEVEL = logging.INFO
 LOG_LEVELS = collections.defaultdict(
     lambda: DEFAULT_LOG_LEVEL,
@@ -70,9 +72,12 @@ def assume_role(
     role_arn,
     duration=3600,
     session_name=None,
-    serial_number=None
+    serial_number=None,
+    cache_dir=None,
 ):
     """Assume a role with refreshable credentials."""
+    cache_dir = cache_dir or botocore.credentials.JSONFileCache.CACHE_DIR
+
     fetcher = botocore.credentials.AssumeRoleCredentialFetcher(
         session.create_client,
         session.get_credentials(),
@@ -82,7 +87,7 @@ def assume_role(
             'RoleSessionName': session_name,
             'SerialNumber': serial_number
         }),
-        cache=botocore.credentials.JSONFileCache()
+        cache=botocore.credentials.JSONFileCache(working_dir=cache_dir)
     )
     role_session = botocore.session.Session()
     role_session.register_component(
@@ -151,11 +156,20 @@ def get_partition():
     return get_caller_identity()['Arn'].split(':')[1]
 
 
-def main(role_arn, role_name, trust_policy):
+def main(
+    role_arn,
+    role_name,
+    trust_policy,
+    botocore_cache_dir=BOTOCORE_CACHE_DIR,
+):
     """Assume role and update role trust policy."""
     # Create a session with an assumed role in the new account
     log.info('Assuming role: %s', role_arn)
-    session = assume_role(botocore.session.Session(), role_arn)
+    session = assume_role(
+        botocore.session.Session(),
+        role_arn,
+        cache_dir=botocore_cache_dir,
+    )
 
     # Update the role trust policy
     log.info('Updating role: %s', role_name)
@@ -181,9 +195,15 @@ def lambda_handler(event, context):
         update_role_name = os.environ['UPDATE_ROLE_NAME']
         role_arn = f'arn:{partition}:iam::{account_id}:role/{assume_role_name}'
         trust_policy = os.environ['TRUST_POLICY']
+        botocore_cache_dir = BOTOCORE_CACHE_DIR or '/tmp/.aws/boto/cache'
 
         # Assume the role and update the role trust policy
-        sys.exit(main(role_arn, update_role_name, trust_policy))
+        sys.exit(main(
+            role_arn,
+            update_role_name,
+            trust_policy,
+            botocore_cache_dir=botocore_cache_dir,
+        ))
     except Exception as exc:
         log.critical('Caught error: %s', exc, exc_info=exc)
         raise
