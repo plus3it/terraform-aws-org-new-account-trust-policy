@@ -14,6 +14,10 @@ import time
 import boto3
 import botocore
 
+# Allow user to override the boto cache dir using the env `BOTOCORE_CACHE_DIR`
+# References:
+#   * <https://github.com/mixja/boto3-session-cache>
+#   * <https://github.com/boto/botocore/blob/a196a50ad7bbf2410b8ac800807acd0fb06ca331/botocore/credentials.py#L241-L252>
 BOTOCORE_CACHE_DIR = os.environ.get('BOTOCORE_CACHE_DIR')
 
 DEFAULT_LOG_LEVEL = logging.INFO
@@ -190,6 +194,9 @@ def lambda_handler(event, context):
         update_role_name = os.environ['UPDATE_ROLE_NAME']
         role_arn = f'arn:{partition}:iam::{account_id}:role/{assume_role_name}'
         trust_policy = os.environ['TRUST_POLICY']
+
+        # In lambda, override the default boto cache dir because only `/tmp/`
+        # is writeable
         botocore_cache_dir = BOTOCORE_CACHE_DIR or '/tmp/.aws/boto/cache'
 
         # Assume the role and update the role trust policy
