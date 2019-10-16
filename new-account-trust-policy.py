@@ -14,6 +14,12 @@ import time
 import boto3
 import botocore
 
+# Allow user to override the boto cache dir using the env `BOTOCORE_CACHE_DIR`
+# References:
+#   * <https://github.com/mixja/boto3-session-cache>
+#   * <https://github.com/boto/botocore/blob/a196a50ad7bbf2410b8ac800807acd0fb06ca331/botocore/credentials.py#L241-L252>
+BOTOCORE_CACHE_DIR = os.environ.get('BOTOCORE_CACHE_DIR')
+
 DEFAULT_LOG_LEVEL = logging.INFO
 LOG_LEVELS = collections.defaultdict(
     lambda: DEFAULT_LOG_LEVEL,
@@ -70,9 +76,12 @@ def assume_role(
     role_arn,
     duration=3600,
     session_name=None,
-    serial_number=None
+    serial_number=None,
+    cache_dir=None,
 ):
     """Assume a role with refreshable credentials."""
+    cache_dir = cache_dir or botocore.credentials.JSONFileCache.CACHE_DIR
+
     fetcher = botocore.credentials.AssumeRoleCredentialFetcher(
         session.create_client,
         session.get_credentials(),
@@ -82,7 +91,7 @@ def assume_role(
             'RoleSessionName': session_name,
             'SerialNumber': serial_number
         }),
-        cache=botocore.credentials.JSONFileCache()
+        cache=botocore.credentials.JSONFileCache(working_dir=cache_dir)
     )
     role_session = botocore.session.Session()
     role_session.register_component(
@@ -90,11 +99,6 @@ def assume_role(
         botocore.credentials.CredentialResolver([AssumeRoleProvider(fetcher)])
     )
     return role_session
-
-
-def dump_json(data, indent=2, **opts):
-    """Dump JSON output with custom, localized defaults."""
-    return json.dumps(data, indent=indent, **opts)
 
 
 def get_new_account_id(event):
@@ -112,7 +116,7 @@ def get_new_account_id(event):
             return account_status['CreateAccountStatus']['AccountId']
         elif state == 'FAILED':
             log.error(
-                'Account creation failed:\n%s', dump_json(account_status)
+                'Account creation failed:\n%s', json.dumps(account_status)
             )
             raise AccountCreationFailedException
         else:
@@ -151,15 +155,24 @@ def get_partition():
     return get_caller_identity()['Arn'].split(':')[1]
 
 
-def main(role_arn, role_name, trust_policy):
+def main(
+    role_arn,
+    role_name,
+    trust_policy,
+    botocore_cache_dir=BOTOCORE_CACHE_DIR,
+):
     """Assume role and update role trust policy."""
     # Create a session with an assumed role in the new account
     log.info('Assuming role: %s', role_arn)
-    session = assume_role(botocore.session.Session(), role_arn)
+    session = assume_role(
+        botocore.session.Session(),
+        role_arn,
+        cache_dir=botocore_cache_dir,
+    )
 
     # Update the role trust policy
     log.info('Updating role: %s', role_name)
-    log.info('Applying trust policy:\n%s', dump_json(json.loads(trust_policy)))
+    log.info('Applying trust policy:\n%s', trust_policy)
     iam = session.create_client('iam')
     iam.update_assume_role_policy(
         RoleName=role_name,
@@ -172,7 +185,7 @@ def main(role_arn, role_name, trust_policy):
 def lambda_handler(event, context):
     """Entry point for the lambda handler."""
     try:
-        log.info('Received event:\n%s', dump_json(event))
+        log.info('Received event:\n%s', json.dumps(event))
 
         # Get vars required to update the role
         account_id = get_account_id(event)
@@ -182,8 +195,17 @@ def lambda_handler(event, context):
         role_arn = f'arn:{partition}:iam::{account_id}:role/{assume_role_name}'
         trust_policy = os.environ['TRUST_POLICY']
 
+        # In lambda, override the default boto cache dir because only `/tmp/`
+        # is writeable
+        botocore_cache_dir = BOTOCORE_CACHE_DIR or '/tmp/.aws/boto/cache'
+
         # Assume the role and update the role trust policy
-        sys.exit(main(role_arn, update_role_name, trust_policy))
+        main(
+            role_arn,
+            update_role_name,
+            trust_policy,
+            botocore_cache_dir=botocore_cache_dir,
+        )
     except Exception as exc:
         log.critical('Caught error: %s', exc, exc_info=exc)
         raise
