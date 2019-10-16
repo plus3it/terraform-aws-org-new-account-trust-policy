@@ -193,12 +193,12 @@ def lambda_handler(event, context):
         botocore_cache_dir = BOTOCORE_CACHE_DIR or '/tmp/.aws/boto/cache'
 
         # Assume the role and update the role trust policy
-        sys.exit(main(
+        main(
             role_arn,
             update_role_name,
             trust_policy,
             botocore_cache_dir=botocore_cache_dir,
-        ))
+        )
     except Exception as exc:
         log.critical('Caught error: %s', exc, exc_info=exc)
         raise
