@@ -97,11 +97,6 @@ def assume_role(
     return role_session
 
 
-def dump_json(data, indent=2, **opts):
-    """Dump JSON output with custom, localized defaults."""
-    return json.dumps(data, indent=indent, **opts)
-
-
 def get_new_account_id(event):
     """Return account id for new account events."""
     create_account_status_id = event['detail']['responseElements']['createAccountStatus']['id']  # noqa: E501
@@ -117,7 +112,7 @@ def get_new_account_id(event):
             return account_status['CreateAccountStatus']['AccountId']
         elif state == 'FAILED':
             log.error(
-                'Account creation failed:\n%s', dump_json(account_status)
+                'Account creation failed:\n%s', json.dumps(account_status)
             )
             raise AccountCreationFailedException
         else:
@@ -173,7 +168,7 @@ def main(
 
     # Update the role trust policy
     log.info('Updating role: %s', role_name)
-    log.info('Applying trust policy:\n%s', dump_json(json.loads(trust_policy)))
+    log.info('Applying trust policy:\n%s', trust_policy)
     iam = session.create_client('iam')
     iam.update_assume_role_policy(
         RoleName=role_name,
@@ -186,7 +181,7 @@ def main(
 def lambda_handler(event, context):
     """Entry point for the lambda handler."""
     try:
-        log.info('Received event:\n%s', dump_json(event))
+        log.info('Received event:\n%s', json.dumps(event))
 
         # Get vars required to update the role
         account_id = get_account_id(event)
