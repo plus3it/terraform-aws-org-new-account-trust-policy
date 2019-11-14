@@ -47,6 +47,17 @@ install/gh-release/%:
 	$* --version
 	@ echo "[$@]: Completed successfully!"
 
+install/pip/%: PYTHON ?= python
+install/pip/%: | guard/env/PYPI_PKG_NAME
+	@ echo "[$@]: Installing $*..."
+	$(PYTHON) -m pip install --user $(PYPI_PKG_NAME)
+	ln -sf ~/.local/bin/$* $(BIN_DIR)/$*
+	$* --version
+	@ echo "[$@]: Completed successfully!"
+
+black/install:
+	@ $(MAKE) install/pip/$(@D) PYPI_PKG_NAME=$(@D)
+
 zip/install:
 	@ echo "[$@]: Installing $(@D)..."
 	apt-get install zip -y
@@ -77,6 +88,16 @@ shellcheck/install: $(BIN_DIR) guard/program/xz
 	mv $(@D)-*/$(@D) $(BIN_DIR)
 	rm -rf $(@D)-*
 	$(@D) --version
+
+python/lint: | guard/program/black
+	@ echo "[$@]: Linting Python files..."
+	black --check .
+	@ echo "[$@]: Python files PASSED lint test!"
+
+python/format: | guard/program/black
+	@ echo "[$@]: Formatting Python files..."
+	black .
+	@ echo "[$@]: Successfully formatted Python files!"
 
 terraform/lint: | guard/program/terraform
 	@ echo "[$@]: Linting Terraform files..."
