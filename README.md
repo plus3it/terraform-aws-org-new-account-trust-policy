@@ -32,10 +32,10 @@ aws cloudformation deploy --profile mock-dev --template package.yaml --capabilit
 
 | Name | Description | Type | Default | Required |
 |------|-------------|:----:|:-----:|:-----:|
-| assume\_role\_name | Name of the IAM role to assume in the target account (case sensitive) | string | n/a | yes |
+| assume\_role\_name | Name of the IAM role to assume in the target account \(case sensitive\) | string | n/a | yes |
 | log\_level | Log level of the lambda output, one of: Debug, Info, Warning, Error, Critical | string | `"Info"` | no |
 | trust\_policy | JSON string representing the trust policy to apply to the role being updated | string | n/a | yes |
-| update\_role\_name | Name of the IAM role to update in the target account (case sensitive) | string | n/a | yes |
+| update\_role\_name | Name of the IAM role to update in the target account \(case sensitive\) | string | n/a | yes |
 
 ## Outputs
 
