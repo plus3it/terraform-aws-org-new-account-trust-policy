@@ -1,5 +1,5 @@
 terraform {
-  required_version  = "~> 0.12.0"
+  required_version = "~> 0.12.0"
 }
 
 locals {
@@ -56,5 +56,5 @@ module "new_account_trust_policy" {
 
   assume_role_name = aws_iam_role.this.name
   update_role_name = aws_iam_role.this.name
-  trust_policy = local.update_trust_policy
+  trust_policy     = local.update_trust_policy
 }
