@@ -28,14 +28,22 @@ aws cloudformation package --template new-account-trust-policy.yaml --output-tem
 aws cloudformation deploy --profile mock-dev --template package.yaml --capabilities CAPABILITY_IAM --stack-name <stack-name> --parameter-overrides AssumeRoleName=<role-to-assume> UpdateRoleName=<role-to-update> TrustPolicy=<trust-policy-to-apply>
 ```
 
+<!-- BEGIN TFDOCS -->
+## Providers
+
+| Name | Version |
+|------|---------|
+| aws | n/a |
+| random | n/a |
+
 ## Inputs
 
 | Name | Description | Type | Default | Required |
-|------|-------------|:----:|:-----:|:-----:|
-| assume\_role\_name | Name of the IAM role to assume in the target account \(case sensitive\) | string | n/a | yes |
-| log\_level | Log level of the lambda output, one of: Debug, Info, Warning, Error, Critical | string | `"Info"` | no |
-| trust\_policy | JSON string representing the trust policy to apply to the role being updated | string | n/a | yes |
-| update\_role\_name | Name of the IAM role to update in the target account \(case sensitive\) | string | n/a | yes |
+|------|-------------|------|---------|:-----:|
+| assume\_role\_name | Name of the IAM role to assume in the target account (case sensitive) | `string` | n/a | yes |
+| trust\_policy | JSON string representing the trust policy to apply to the role being updated | `string` | n/a | yes |
+| update\_role\_name | Name of the IAM role to update in the target account (case sensitive) | `string` | n/a | yes |
+| log\_level | Log level of the lambda output, one of: Debug, Info, Warning, Error, Critical | `string` | `"Info"` | no |
 
 ## Outputs
 
@@ -46,3 +54,4 @@ aws cloudformation deploy --profile mock-dev --template package.yaml --capabilit
 | aws\_lambda\_permission\_events | The lambda permission object for cloudwatch event triggers |
 | lambda | The lambda module object |
 
+<!-- END TFDOCS -->

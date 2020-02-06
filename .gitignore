@@ -8,8 +8,12 @@
 # .tfvars files
 *.tfvars
 
-# ignore this file
-!tfmodule-template.tf
-
 # cloudformation package
 package.yaml
+
+# tardigrade-ci
+.tardigrade-ci
+tardigrade-ci/
+
+# eclint
+.git/
