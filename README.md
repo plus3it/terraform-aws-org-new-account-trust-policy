@@ -29,6 +29,12 @@ aws cloudformation deploy --profile mock-dev --template package.yaml --capabilit
 ```
 
 <!-- BEGIN TFDOCS -->
+## Requirements
+
+| Name | Version |
+|------|---------|
+| terraform | >= 0.12 |
+
 ## Providers
 
 | Name | Version |
@@ -39,7 +45,7 @@ aws cloudformation deploy --profile mock-dev --template package.yaml --capabilit
 ## Inputs
 
 | Name | Description | Type | Default | Required |
-|------|-------------|------|---------|:-----:|
+|------|-------------|------|---------|:--------:|
 | assume\_role\_name | Name of the IAM role to assume in the target account (case sensitive) | `string` | n/a | yes |
 | trust\_policy | JSON string representing the trust policy to apply to the role being updated | `string` | n/a | yes |
 | update\_role\_name | Name of the IAM role to update in the target account (case sensitive) | `string` | n/a | yes |
