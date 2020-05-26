@@ -40,7 +40,7 @@ resource "random_string" "id" {
 }
 
 module "lambda" {
-  source = "git::https://github.com/plus3it/terraform-aws-lambda.git?ref=v1.1.0"
+  source = "git::https://github.com/plus3it/terraform-aws-lambda.git?ref=v1.2.0"
 
   function_name = local.name
   description   = "Post messages from AWS to Slack"
