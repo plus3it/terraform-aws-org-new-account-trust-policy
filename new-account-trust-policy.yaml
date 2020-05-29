@@ -30,6 +30,7 @@ Resources:
           eventName:
             - InviteAccountToOrganization
             - CreateAccount
+            - CreateGovCloudAccount
       State: ENABLED
       Targets:
         - Arn: !GetAtt LambdaFunction.Arn
