@@ -147,6 +147,7 @@ def get_account_id(event):
     event_name = event["detail"]["eventName"]
     get_account_id_strategy = {
         "CreateAccount": get_new_account_id,
+        "CreateGovCloudAccount": get_new_account_id,
         "InviteAccountToOrganization": get_invite_account_id,
     }
 
