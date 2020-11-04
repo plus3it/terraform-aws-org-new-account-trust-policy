@@ -2,4 +2,4 @@ module terraform-aws-org-new-account-trust-policy/tests
 
 go 1.12
 
-require github.com/gruntwork-io/terratest v0.30.15
+require github.com/gruntwork-io/terratest v0.30.16
