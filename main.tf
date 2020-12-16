@@ -71,7 +71,8 @@ resource "aws_cloudwatch_event_rule" "this" {
         "eventSource": ["organizations.amazonaws.com"],
         "eventName": [
             "InviteAccountToOrganization",
-            "CreateAccount"
+            "CreateAccount",
+            "CreateGovCloudAccount"
         ]
       }
     }
