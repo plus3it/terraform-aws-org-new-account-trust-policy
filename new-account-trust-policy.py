@@ -1,4 +1,5 @@
 """Respond to new account events and update trust policy in the account."""
+# pylint: disable=invalid-name
 from __future__ import (
     absolute_import,
     division,
@@ -24,7 +25,8 @@ import botocore
 # Allow user to override the boto cache dir using the env `BOTOCORE_CACHE_DIR`
 # References:
 #   * <https://github.com/mixja/boto3-session-cache>
-#   * <https://github.com/boto/botocore/blob/a196a50ad7bbf2410b8ac800807acd0fb06ca331/botocore/credentials.py#L241-L252>
+#   * <https://github.com/boto/botocore/blob/a196a50ad7bbf2410b8ac800807acd0fb06ca331/
+#                                                    botocore/credentials.py#L241-L252>
 BOTOCORE_CACHE_DIR = os.environ.get("BOTOCORE_CACHE_DIR")
 
 DEFAULT_LOG_LEVEL = logging.INFO
@@ -58,12 +60,13 @@ class AccountCreationFailedException(Exception):
     """Account creation failed."""
 
 
-class AssumeRoleProvider(object):
+class AssumeRoleProvider:  # pylint: disable=too-few-public-methods
     """Provide refreshable credentials for assumed role."""
 
     METHOD = "assume-role"
 
     def __init__(self, fetcher):
+        """Initialize class variables."""
         self._fetcher = fetcher
 
     def load(self):
@@ -85,7 +88,7 @@ def assume_role(
     session_name=None,
     serial_number=None,
     cache_dir=None,
-):
+):  # pylint: disable=too-many-arguments
     """Assume a role with refreshable credentials."""
     cache_dir = cache_dir or botocore.credentials.JSONFileCache.CACHE_DIR
 
@@ -127,14 +130,11 @@ def get_new_account_id(event):
         state = account_status["CreateAccountStatus"]["State"].upper()
         if state == "SUCCEEDED":
             return account_status["CreateAccountStatus"]["AccountId"]
-        elif state == "FAILED":
+        if state == "FAILED":
             log.error("Account creation failed:\n%s", json.dumps(account_status))
             raise AccountCreationFailedException
-        else:
-            log.info(
-                "Account state: %s. Sleeping 5 seconds and will try again...", state
-            )
-            time.sleep(5)
+        log.info("Account state: %s. Sleeping 5 seconds and will try again...", state)
+        time.sleep(5)
 
 
 def get_invite_account_id(event):
@@ -167,13 +167,18 @@ def get_partition():
 
 
 def main(
-    role_arn, role_name, trust_policy, botocore_cache_dir=BOTOCORE_CACHE_DIR,
+    role_arn,
+    role_name,
+    trust_policy,
+    botocore_cache_dir=BOTOCORE_CACHE_DIR,
 ):
     """Assume role and update role trust policy."""
     # Create a session with an assumed role in the new account
     log.info("Assuming role: %s", role_arn)
     session = assume_role(
-        botocore.session.Session(), role_arn, cache_dir=botocore_cache_dir,
+        botocore.session.Session(),
+        role_arn,
+        cache_dir=botocore_cache_dir,
     )
 
     # Update the role trust policy
@@ -185,7 +190,7 @@ def main(
     log.info("Updated role successfully!")
 
 
-def lambda_handler(event, context):
+def lambda_handler(event, context):  # pylint: disable=unused-argument
     """Entry point for the lambda handler."""
     try:
         log.info("Received event:\n%s", json.dumps(event))
