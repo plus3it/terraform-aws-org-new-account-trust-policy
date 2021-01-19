@@ -1,7 +1,3 @@
-terraform {
-  required_version = "~> 0.12.0"
-}
-
 locals {
   trust_policy = <<-EOF
     {
@@ -41,11 +37,9 @@ locals {
     EOF
 }
 
-data "aws_partition" "current" {
-}
+data "aws_partition" "current" {}
 
-data "aws_caller_identity" "current" {
-}
+data "aws_caller_identity" "current" {}
 
 resource "aws_iam_role" "this" {
   assume_role_policy = local.trust_policy
