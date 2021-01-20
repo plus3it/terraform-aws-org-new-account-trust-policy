@@ -2,15 +2,11 @@ terraform {
   required_version = ">= 0.12"
 }
 
-provider "aws" {
-}
-
 locals {
   name = "new-account-trust-policy-${random_string.id.result}"
 }
 
-data "aws_partition" "current" {
-}
+data "aws_partition" "current" {}
 
 data "aws_iam_policy_document" "lambda" {
   statement {
