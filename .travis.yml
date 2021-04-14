@@ -1,21 +1,38 @@
 dist: bionic
 
-language: node_js
-
-node_js:
-  - "12"
-
 stages:
   - lint
+  - test
   - deploy
 
 if: branch = master OR type = pull_request
+
+stage: test
+
+name: Project Tests
+
+language: python
+
+python:
+  - "3.8"
+  - "3.9"
+
+install: skip
+
+script:
+  - |
+    set -e
+    make docker/run target=python/test
+    make localstack/up
+    make localstack/pytest
+    make localstack/clean
 
 jobs:
   include:
     - stage: lint
       name: Project Syntax Verification
-      script: make && make docker/run target=lint
+      script:
+        - make docker/run target=lint
     - stage: deploy
       if: branch = master AND type = push AND repo = plus3it/terraform-aws-org-new-account-trust-policy
       before_script:

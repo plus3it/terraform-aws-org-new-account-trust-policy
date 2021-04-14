@@ -28,6 +28,21 @@ aws cloudformation package --template new_account_trust_policy.yaml --output-tem
 aws cloudformation deploy --profile mock-dev --template package.yaml --capabilities CAPABILITY_IAM --stack-name <stack-name> --parameter-overrides AssumeRoleName=<role-to-assume> UpdateRoleName=<role-to-update> TrustPolicy=<trust-policy-to-apply>
 ```
 
+## Testing
+
+To set up and run tests against the Terraform configuration:
+
+```
+# Start up LocalStack, a mock AWS stack:
+make localstack/up
+
+# Run the tests:
+make terraform/pytest
+
+# Shut down LocalStack and clean up docker images:
+make localstack/clean
+```
+
 <!-- BEGIN TFDOCS -->
 ## Requirements
 
