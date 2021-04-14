@@ -81,9 +81,9 @@ Resources:
   LambdaFunction:
     Type: AWS::Lambda::Function
     Properties:
-      Handler: new-account-trust-policy.lambda_handler
+      Handler: new_account_trust_policy.lambda_handler
       Role: !GetAtt LambdaIamRole.Arn
-      Code: new-account-trust-policy.py
+      Code: new_account_trust_policy.py
       Runtime: python3.6
       Timeout: 300
       Environment:

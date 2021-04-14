@@ -1,116 +1,38 @@
-# pylint: disable=invalid-name
-"""Respond to new account events and update trust policy in the account."""
-from __future__ import (
-    absolute_import,
-    division,
-    generator_stop,
-    generators,
-    nested_scopes,
-    print_function,
-    unicode_literals,
-    with_statement,
-)
-
+#!/usr/bin/env python3
+"""Respond to new account events by updating trust policy in the account."""
 import argparse
-import collections
 import json
-import logging
 import os
 import sys
 import time
 
+from aws_lambda_powertools import Logger
+from aws_assume_role_lib import assume_role, generate_lambda_session_name
 import boto3
 import botocore
 
-# Allow user to override the boto cache dir using the env `BOTOCORE_CACHE_DIR`
-# References:
-#   * <https://github.com/mixja/boto3-session-cache>
-#   * <https://github.com/boto/botocore/blob/a196a50ad7bbf2410b8ac800807acd0fb06ca331/botocore/credentials.py#L241-L252>  # pylint: disable=line-too-long
-BOTOCORE_CACHE_DIR = os.environ.get("BOTOCORE_CACHE_DIR")
+LOG_LEVEL = os.environ.get("LOG_LEVEL", "info")
 
-DEFAULT_LOG_LEVEL = logging.INFO
-LOG_LEVELS = collections.defaultdict(
-    lambda: DEFAULT_LOG_LEVEL,
-    {
-        "critical": logging.CRITICAL,
-        "error": logging.ERROR,
-        "warning": logging.WARNING,
-        "info": logging.INFO,
-        "debug": logging.DEBUG,
-    },
-)
-
-# Lambda initializes a root logger that needs to be removed in order to set a
-# different logging config
-root = logging.getLogger()
-if root.handlers:
-    for handler in root.handlers:
-        root.removeHandler(handler)
-
-logging.basicConfig(
-    format="%(asctime)s.%(msecs)03dZ [%(name)s][%(levelname)-5s]: %(message)s",
+LOG = Logger(
+    service="new_account_trust_policy",
+    level=LOG_LEVEL,
+    stream=sys.stderr,
+    location="%(name)s.%(funcName)s:%(lineno)d",
+    timestamp="%(asctime)s.%(msecs)03dZ",
     datefmt="%Y-%m-%dT%H:%M:%S",
-    level=LOG_LEVELS[os.environ.get("LOG_LEVEL", "").lower()],
 )
-log = logging.getLogger(__name__)
+
+
+class TrustPolicyInvalidArgumentsError(Exception):
+    """Account creation failed."""
+
+
+# ---------------------------------------------------------------------
+# Logic specific to handling the event provided to the Lambda handler.
 
 
 class AccountCreationFailedException(Exception):
     """Account creation failed."""
-
-
-class AssumeRoleProvider(
-    object
-):  # pylint: disable=useless-object-inheritance, too-few-public-methods
-    """Provide refreshable credentials for assumed role."""
-
-    METHOD = "assume-role"
-
-    def __init__(self, fetcher):  # noqa: D107
-        self._fetcher = fetcher
-
-    def load(self):
-        """Provide refreshable credentials for assumed role."""
-        return botocore.credentials.DeferredRefreshableCredentials(
-            self._fetcher.fetch_credentials, self.METHOD
-        )
-
-
-def filter_none_values(data):
-    """Return a new dictionary excluding items where value was None."""
-    return {k: v for k, v in data.items() if v is not None}
-
-
-def assume_role(
-    session,
-    role_arn,
-    duration=3600,
-    session_name=None,
-    serial_number=None,
-    cache_dir=None,
-):  # pylint: disable=too-many-arguments
-    """Assume a role with refreshable credentials."""
-    cache_dir = cache_dir or botocore.credentials.JSONFileCache.CACHE_DIR
-
-    fetcher = botocore.credentials.AssumeRoleCredentialFetcher(
-        session.create_client,
-        session.get_credentials(),
-        role_arn,
-        extra_args=filter_none_values(
-            {
-                "DurationSeconds": duration,
-                "RoleSessionName": session_name,
-                "SerialNumber": serial_number,
-            }
-        ),
-        cache=botocore.credentials.JSONFileCache(working_dir=cache_dir),
-    )
-    role_session = botocore.session.Session()
-    role_session.register_component(
-        "credential_provider",
-        botocore.credentials.CredentialResolver([AssumeRoleProvider(fetcher)]),
-    )
-    return role_session
 
 
 def get_new_account_id(event):
@@ -120,7 +42,7 @@ def get_new_account_id(event):
         .get("responseElements", {})
         .get("createAccountStatus", {})["id"]  # fmt: no
     )
-    log.info("createAccountStatus = %s", create_account_status_id)
+    LOG.info("createAccountStatus = %s", create_account_status_id)
 
     org = boto3.client("organizations")
     while True:
@@ -131,9 +53,9 @@ def get_new_account_id(event):
         if state == "SUCCEEDED":
             return account_status["CreateAccountStatus"]["AccountId"]
         if state == "FAILED":
-            log.error("Account creation failed:\n%s", json.dumps(account_status))
+            LOG.error("Account creation failed:\n%s", json.dumps(account_status))
             raise AccountCreationFailedException
-        log.info("Account state: %s. Sleeping 5 seconds and will try again...", state)
+        LOG.info("Account state: %s. Sleeping 5 seconds and will try again...", state)
         time.sleep(5)
 
 
@@ -154,68 +76,120 @@ def get_account_id(event):
     return get_account_id_strategy[event_name](event)
 
 
-def get_caller_identity(sts=None):
-    """Return caller identity from STS."""
-    if not sts:
-        sts = boto3.client("sts")
-    return sts.get_caller_identity()
-
-
 def get_partition():
     """Return AWS partition."""
-    return get_caller_identity()["Arn"].split(":")[1]
+    sts = boto3.client("sts")
+    return sts.get_caller_identity()["Arn"].split(":")[1]
 
 
-def main(
-    role_arn,
-    role_name,
-    trust_policy,
-    botocore_cache_dir=BOTOCORE_CACHE_DIR,
-):
-    """Assume role and update role trust policy."""
-    # Create a session with an assumed role in the new account
-    log.info("Assuming role: %s", role_arn)
-    session = assume_role(
-        botocore.session.Session(),
-        role_arn,
-        cache_dir=botocore_cache_dir,
+# ---------------------------------------------------------------------
+
+
+def get_session(assume_role_arn):
+    """Return boto3 session established using a role arn or AWS profile."""
+    function_name = generate_lambda_session_name(
+        function_name=os.path.basename(__file__), function_version="$LATEST"
+    )
+    return assume_role(
+        boto3.Session(),
+        assume_role_arn,
+        RoleSessionName=function_name,
+        DurationSeconds=3600,
     )
 
-    # Update the role trust policy
-    log.info("Updating role: %s", role_name)
-    log.info("Applying trust policy:\n%s", trust_policy)
-    iam = session.create_client("iam")
-    iam.update_assume_role_policy(RoleName=role_name, PolicyDocument=trust_policy)
 
-    log.info("Updated role successfully!")
+def main(role_arn, role_name, trust_policy):
+    """Assume role and update role trust policy."""
+    # Validate trust policy contains properly formatted JSON.  This is
+    # not a validation against a schema, so the JSON could still be bad.
+    try:
+        json.loads(trust_policy)
+    except json.decoder.JSONDecodeError as exc:
+        # pylint: disable=raise-missing-from
+        raise TrustPolicyInvalidArgumentsError(
+            f"'trust-policy' contains badly formed JSON: {exc}"
+        )
+
+    # Create a session using an assumed role in the new account.
+    assumed_role_session = get_session(role_arn)
+
+    # Update the role trust policy.
+    iam_client = assumed_role_session.client("iam")
+    try:
+        iam_client.update_assume_role_policy(
+            RoleName=role_name, PolicyDocument=trust_policy
+        )
+    except (
+        botocore.exceptions.ClientError,
+        botocore.parsers.ResponseParserError,
+    ) as exc:
+        LOG.error(
+            {
+                "role_name": role_name,
+                "failure_msg": "Unable to update assume role policy",
+                "failure": exc,
+            }
+        )
+        raise TrustPolicyInvalidArgumentsError(exc) from exc
+    return 0
 
 
+def check_all_envvars_nonnull(assume_role_name, update_role_name, trust_policy):
+    """Verify the given envvars values are non-null."""
+    checks = {
+        "assume_role_name": {
+            "value": assume_role_name,
+            "errmsg": (
+                "Environment variable 'ASSUME_ROLE_NAME' must provide the "
+                "name of the IAM role to assume in target account.",
+            ),
+        },
+        "update_role_name": {
+            "value": update_role_name,
+            "errmsg": (
+                "Environment variable 'UPDATE_ROLE_NAME' must be the name "
+                "of the IAM role to update in target account.",
+            ),
+        },
+        "trust_policy": {
+            "value": trust_policy,
+            "errmsg": (
+                "Environment variable 'TRUST_POLICY' must be a "
+                "JSON-formatted string containing the role trust policy.",
+            ),
+        },
+    }
+
+    for check in checks.values():
+        if not check["value"]:
+            LOG.error(check["errmsg"])
+            raise TrustPolicyInvalidArgumentsError(check["errmsg"])
+
+
+@LOG.inject_lambda_context(log_event=True)
 def lambda_handler(event, context):  # pylint: disable=unused-argument
     """Entry point for the lambda handler."""
-    try:
-        log.info("Received event:\n%s", json.dumps(event))
+    assume_role_name = os.environ.get("ASSUME_ROLE_NAME")
+    update_role_name = os.environ.get("UPDATE_ROLE_NAME")
+    trust_policy = os.environ.get("TRUST_POLICY")
+    LOG.info(
+        {
+            "ASSUME_ROLE_NAME": assume_role_name,
+            "UPDATE_ROLE_NAME": update_role_name,
+            "TRUST_POLICY": trust_policy,
+        }
+    )
+    check_all_envvars_nonnull(assume_role_name, update_role_name, trust_policy)
 
-        # Get vars required to update the role
+    try:
         account_id = get_account_id(event)
         partition = get_partition()
-        assume_role_name = os.environ["ASSUME_ROLE_NAME"]
-        update_role_name = os.environ["UPDATE_ROLE_NAME"]
         role_arn = f"arn:{partition}:iam::{account_id}:role/{assume_role_name}"
-        trust_policy = os.environ["TRUST_POLICY"]
 
-        # In lambda, override the default boto cache dir because only `/tmp/`
-        # is writeable
-        botocore_cache_dir = BOTOCORE_CACHE_DIR or "/tmp/.aws/boto/cache"
-
-        # Assume the role and update the role trust policy
-        main(
-            role_arn,
-            update_role_name,
-            trust_policy,
-            botocore_cache_dir=botocore_cache_dir,
-        )
+        # Assume the role and update the role trust policy.
+        main(role_arn, update_role_name, trust_policy)
     except Exception as exc:
-        log.critical("Caught error: %s", exc, exc_info=exc)
+        LOG.critical("Caught error: %s", exc, exc_info=exc)
         raise
 
 

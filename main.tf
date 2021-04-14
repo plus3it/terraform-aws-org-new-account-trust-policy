@@ -3,7 +3,7 @@ terraform {
 }
 
 locals {
-  name = "new-account-trust-policy-${random_string.id.result}"
+  name = "new_account_trust_policy_${random_string.id.result}"
 }
 
 data "aws_partition" "current" {}
@@ -39,11 +39,11 @@ module "lambda" {
   source = "git::https://github.com/plus3it/terraform-aws-lambda.git?ref=v1.2.0"
 
   function_name = local.name
-  description   = "Post messages from AWS to Slack"
-  handler       = "new-account-trust-policy.lambda_handler"
+  description   = "Update trust policy on IAM Account Role"
+  handler       = "new_account_trust_policy.lambda_handler"
   policy        = data.aws_iam_policy_document.lambda
   runtime       = "python3.6"
-  source_path   = "${path.module}/new-account-trust-policy.py"
+  source_path   = "${path.module}/lambda/src"
   timeout       = 300
 
   environment = {
