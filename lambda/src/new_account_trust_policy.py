@@ -87,9 +87,13 @@ def get_partition():
 
 def get_session(assume_role_arn):
     """Return boto3 session established using a role arn or AWS profile."""
-    function_name = generate_lambda_session_name(
-        function_name=os.path.basename(__file__), function_version="$LATEST"
-    )
+    if os.environ.get("AWS_LAMBDA_FUNCTION_NAME"):
+        function_name = generate_lambda_session_name()
+    else:
+        function_name = generate_lambda_session_name(
+            function_name=os.path.basename(__file__), function_version="$LATEST"
+        )
+
     return assume_role(
         boto3.Session(),
         assume_role_arn,
