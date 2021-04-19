@@ -165,7 +165,7 @@ def test_lambda_dry_run(tf_output, localstack_session):
 
 
 def test_lambda_invocation(tf_output, localstack_session, mock_event):
-    """Verify a role was created with the expected policies."""
+    """Verify the lambda can be successfully executed."""
     # The event does not have a valid ID, so the lambda invocation
     # will fail.  However, when it fails, an InvocationException (or
     # InvalidInputException when using AWS) should be raised.  This proves
