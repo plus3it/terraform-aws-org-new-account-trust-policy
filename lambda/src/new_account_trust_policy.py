@@ -138,36 +138,31 @@ def main(role_arn, role_name, trust_policy):
     return 0
 
 
-def check_all_envvars_nonnull(assume_role_name, update_role_name, trust_policy):
+def check_for_null_envvars(assume_role_name, update_role_name, trust_policy):
     """Verify the given envvars values are non-null."""
-    checks = {
-        "assume_role_name": {
-            "value": assume_role_name,
-            "errmsg": (
-                "Environment variable 'ASSUME_ROLE_NAME' must provide the "
-                "name of the IAM role to assume in target account.",
-            ),
-        },
-        "update_role_name": {
-            "value": update_role_name,
-            "errmsg": (
-                "Environment variable 'UPDATE_ROLE_NAME' must be the name "
-                "of the IAM role to update in target account.",
-            ),
-        },
-        "trust_policy": {
-            "value": trust_policy,
-            "errmsg": (
-                "Environment variable 'TRUST_POLICY' must be a "
-                "JSON-formatted string containing the role trust policy.",
-            ),
-        },
-    }
+    if not assume_role_name:
+        errmsg = (
+            "Environment variable 'ASSUME_ROLE_NAME' must provide the "
+            "name of the IAM role to assume in target account.",
+        )
+        LOG.error(errmsg)
+        raise TrustPolicyInvalidArgumentsError(errmsg)
 
-    for check in checks.values():
-        if not check["value"]:
-            LOG.error(check["errmsg"])
-            raise TrustPolicyInvalidArgumentsError(check["errmsg"])
+    if not update_role_name:
+        errmsg = (
+            "Environment variable 'UPDATE_ROLE_NAME' must be the name "
+            "of the IAM role to update in target account.",
+        )
+        LOG.error(errmsg)
+        raise TrustPolicyInvalidArgumentsError(errmsg)
+
+    if not trust_policy:
+        errmsg = (
+            "Environment variable 'TRUST_POLICY' must be a "
+            "JSON-formatted string containing the role trust policy.",
+        )
+        LOG.error(errmsg)
+        raise TrustPolicyInvalidArgumentsError(errmsg)
 
 
 @LOG.inject_lambda_context(log_event=True)
@@ -183,7 +178,7 @@ def lambda_handler(event, context):  # pylint: disable=unused-argument
             "TRUST_POLICY": trust_policy,
         }
     )
-    check_all_envvars_nonnull(assume_role_name, update_role_name, trust_policy)
+    check_for_null_envvars(assume_role_name, update_role_name, trust_policy)
 
     try:
         account_id = get_account_id(event)
