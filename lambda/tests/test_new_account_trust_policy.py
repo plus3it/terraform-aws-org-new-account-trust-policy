@@ -161,19 +161,11 @@ def replacement_trust_policy():
     return json.dumps(valid_json)
 
 
-def reset_roles(
+def create_roles(
     iam_client, trust_policy, role_name_list
 ):  # pylint: disable=redefined-outer-name
-    """Create role(s) with the same initial AssumeRolePolicyDocument.
-
-    If the roles already exist, they will be deleted.
-    """
-    role_names = [role["RoleName"] for role in iam_client.list_roles()["Roles"]]
-
+    """Create role(s) with the same initial AssumeRolePolicyDocument."""
     for role_name in set(role_name_list):
-        if role_name in role_names:
-            iam_client.delete_role(RoleName=role_name)
-
         iam_client.create_role(
             RoleName=role_name, AssumeRolePolicyDocument=trust_policy
         )
@@ -205,7 +197,7 @@ def test_main_func_uncreated_role_arg(
 
     # Don't create role for bad role name as we don't want an error
     # for the creation of the role.
-    reset_roles(iam_client, initial_trust_policy, [assume_role_name])
+    create_roles(iam_client, initial_trust_policy, [assume_role_name])
 
     with pytest.raises(lambda_func.TrustPolicyInvalidArgumentsError) as exc:
         lambda_func.main(
@@ -228,7 +220,7 @@ def test_main_func_valid_arguments(
     """Test the use of valid arguments for main()."""
     assume_role_name = "TEST_TRUST_POLICY_MAIN_VALID_ASSUME_ROLE"
     update_role_name = "TEST_TRUST_POLICY_MAIN_VALID_UPDATE_ROLE"
-    reset_roles(iam_client, initial_trust_policy, [assume_role_name, update_role_name])
+    create_roles(iam_client, initial_trust_policy, [assume_role_name, update_role_name])
 
     return_code = lambda_func.main(
         role_arn=f"arn:aws:iam::{ACCOUNT_ID}:role/{assume_role_name}",
@@ -264,7 +256,7 @@ def test_lambda_handler_valid_arguments(
     monkeypatch.setenv("UPDATE_ROLE_NAME", update_role_name)
     monkeypatch.setenv("TRUST_POLICY", replacement_trust_policy)
 
-    reset_roles(iam_client, initial_trust_policy, [assume_role_name, update_role_name])
+    create_roles(iam_client, initial_trust_policy, [assume_role_name, update_role_name])
 
     # The lambda function doesn't return anything, so returning nothing versus
     # aborting with an exception is considered success.
@@ -296,7 +288,7 @@ def test_lambda_handler_same_roles(
     monkeypatch.setenv("UPDATE_ROLE_NAME", assume_role_name)
     monkeypatch.setenv("TRUST_POLICY", replacement_trust_policy)
 
-    reset_roles(iam_client, initial_trust_policy, [assume_role_name])
+    create_roles(iam_client, initial_trust_policy, [assume_role_name])
 
     # The lambda function doesn't return anything, so returning nothing versus
     # aborting with an exception is considered success.
