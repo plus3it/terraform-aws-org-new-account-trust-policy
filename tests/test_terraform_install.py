@@ -138,7 +138,7 @@ def test_outputs(tf_output):
         "lambda",
     ]
 
-    prefix = "new_account_trust_policy"
+    prefix = "new-account-trust-policy"
 
     lambda_module = tf_output["lambda"]
     assert lambda_module["function_name"].startswith(prefix)
