@@ -12,7 +12,6 @@ import os
 import uuid
 
 import boto3
-import jsonpickle
 from moto import mock_iam
 from moto import mock_sts
 from moto import mock_organizations
@@ -135,7 +134,7 @@ def initial_trust_policy():
             }
         ],
     }
-    return jsonpickle.encode(initial_json)
+    return json.dumps(initial_json)
 
 
 @pytest.fixture(scope="session")
@@ -240,7 +239,7 @@ def test_main_func_valid_arguments(
 
     # Validate the assumed role's AssumeRolePolicyDocument is unchanged.
     role_info = iam_client.get_role(RoleName=assume_role_name)
-    assume_policy = jsonpickle.encode(role_info["Role"]["AssumeRolePolicyDocument"])
+    assume_policy = json.dumps(role_info["Role"]["AssumeRolePolicyDocument"])
     assert assume_policy == initial_trust_policy
 
     # Validate the updated role's AssumeRolePolicyDocument has been updated.
@@ -273,7 +272,7 @@ def test_lambda_handler_valid_arguments(
 
     # Validate the assumed role's AssumeRolePolicyDocument is unchanged.
     role_info = iam_client.get_role(RoleName=assume_role_name)
-    assume_policy = jsonpickle.encode(role_info["Role"]["AssumeRolePolicyDocument"])
+    assume_policy = json.dumps(role_info["Role"]["AssumeRolePolicyDocument"])
     assert assume_policy == initial_trust_policy
 
     # Validate the updated role's AssumeRolePolicyDocument has been updated.
@@ -305,7 +304,7 @@ def test_lambda_handler_same_roles(
 
     # Validate the assumed role's AssumeRolePolicyDocument has been updated.
     role_info = iam_client.get_role(RoleName=assume_role_name)
-    assume_policy = jsonpickle.encode(role_info["Role"]["AssumeRolePolicyDocument"])
+    assume_policy = json.dumps(role_info["Role"]["AssumeRolePolicyDocument"])
     assert assume_policy == replacement_trust_policy
 
 
