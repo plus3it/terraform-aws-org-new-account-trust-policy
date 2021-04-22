@@ -1,5 +1,6 @@
 #  Local .terraform directories
 .terraform/
+.terraform.lock.hcl
 
 # .tfstate files
 *.tfstate
@@ -15,8 +16,6 @@ package.yaml
 .tardigrade-ci
 tardigrade-ci/
 
-# terratest packaging
-tests/go.*
-
-# terraform lock file
-.terraform.lock.hcl
+# python cache
+__pycache__
+.python-version

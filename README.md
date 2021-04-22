@@ -24,8 +24,23 @@ the same thing as the Terraform module. To deploy it, first create the package,
 then deploy it:
 
 ```bash
-aws cloudformation package --template new-account-trust-policy.yaml --output-template-file package.yaml --s3-bucket <your-s3-bucket>
+aws cloudformation package --template new_account_trust_policy.yaml --output-template-file package.yaml --s3-bucket <your-s3-bucket>
 aws cloudformation deploy --profile mock-dev --template package.yaml --capabilities CAPABILITY_IAM --stack-name <stack-name> --parameter-overrides AssumeRoleName=<role-to-assume> UpdateRoleName=<role-to-update> TrustPolicy=<trust-policy-to-apply>
+```
+
+## Testing
+
+To set up and run tests against the Terraform configuration:
+
+```
+# Start up LocalStack, a mock AWS stack:
+make localstack/up
+
+# Run the tests:
+make terraform/pytest
+
+# Shut down LocalStack and clean up docker images:
+make localstack/clean
 ```
 
 <!-- BEGIN TFDOCS -->
@@ -49,7 +64,7 @@ aws cloudformation deploy --profile mock-dev --template package.yaml --capabilit
 | assume\_role\_name | Name of the IAM role to assume in the target account (case sensitive) | `string` | n/a | yes |
 | trust\_policy | JSON string representing the trust policy to apply to the role being updated | `string` | n/a | yes |
 | update\_role\_name | Name of the IAM role to update in the target account (case sensitive) | `string` | n/a | yes |
-| log\_level | Log level of the lambda output, one of: Debug, Info, Warning, Error, Critical | `string` | `"Info"` | no |
+| log\_level | Log level of the lambda output, one of: debug, info, warning, error, critical | `string` | `"info"` | no |
 
 ## Outputs
 
