@@ -3,7 +3,7 @@ terraform {
 }
 
 locals {
-  name = "new_account_trust_policy_${random_string.id.result}"
+  name = "new-account-trust-policy-${random_string.id.result}"
 }
 
 data "aws_partition" "current" {}
