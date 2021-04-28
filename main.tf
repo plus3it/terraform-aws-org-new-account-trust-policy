@@ -36,7 +36,7 @@ resource "random_string" "id" {
 }
 
 module "lambda" {
-  source = "git::https://github.com/plus3it/terraform-aws-lambda.git?ref=v1.2.0"
+  source = "git::https://github.com/plus3it/terraform-aws-lambda.git?ref=v1.3.0"
 
   function_name = local.name
   description   = "Update trust policy on IAM Account Role"
