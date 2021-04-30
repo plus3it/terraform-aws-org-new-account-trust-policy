@@ -1,1 +1,0 @@
-/workdir/tests/localstack.tf
