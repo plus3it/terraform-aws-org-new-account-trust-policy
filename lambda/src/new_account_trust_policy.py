@@ -95,6 +95,7 @@ def get_session(assume_role_arn):
         assume_role_arn,
         RoleSessionName=generate_lambda_session_name(function_name),
         DurationSeconds=3600,
+        validate=False,
     )
 
 
@@ -175,6 +176,11 @@ def lambda_handler(event, context):  # pylint: disable=unused-argument
         }
     )
     check_for_null_envvars(assume_role_name, update_role_name, trust_policy)
+
+    # If this handler is invoked for an integration test, exit before
+    # invoking any boto3 APIs.
+    if os.environ.get("LOCALSTACK_HOSTNAME"):
+        return
 
     try:
         account_id = get_account_id(event)
