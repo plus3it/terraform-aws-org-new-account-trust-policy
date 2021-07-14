@@ -44,6 +44,7 @@ module "lambda" {
   policy        = data.aws_iam_policy_document.lambda
   runtime       = "python3.6"
   source_path   = "${path.module}/lambda/src"
+  tags          = var.tags
   timeout       = 300
 
   environment = {
@@ -73,6 +74,7 @@ resource "aws_cloudwatch_event_rule" "this" {
       }
     }
     PATTERN
+  tags          = var.tags
 }
 
 resource "aws_cloudwatch_event_target" "this" {

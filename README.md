@@ -72,6 +72,7 @@ make localstack/clean
 | <a name="input_trust_policy"></a> [trust\_policy](#input\_trust\_policy) | JSON string representing the trust policy to apply to the role being updated | `string` | n/a | yes |
 | <a name="input_update_role_name"></a> [update\_role\_name](#input\_update\_role\_name) | Name of the IAM role to update in the target account (case sensitive) | `string` | n/a | yes |
 | <a name="input_log_level"></a> [log\_level](#input\_log\_level) | Log level of the lambda output, one of: debug, info, warning, error, critical | `string` | `"info"` | no |
+| <a name="input_tags"></a> [tags](#input\_tags) | Tags that are passed to resources | `map(string)` | `{}` | no |
 
 ## Outputs
 
