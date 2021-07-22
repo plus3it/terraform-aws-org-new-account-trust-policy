@@ -4,6 +4,21 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+### 0.2.2
+
+**Commit Delta**: [Change from 0.2.1 release](https://github.com/plus3it/terraform-aws-org-new-account-trust-policy/compare/0.2.1...0.2.2)
+
+**Released**: 2021.07.22
+
+**Summary**:
+
+*   Moved common requirements to `requirements_common.txt`.  Dependabot
+    does not want to see duplicate requirements.
+
+*   Updated the `Makefile` to take advantage of new targets in tardigrade-ci.
+
+*   Updated the Travis workflow to reflect changes in tardigrade-ci
+
 ### 0.2.1
 
 **Commit Delta**: [Change from 0.2.0 release](https://github.com/plus3it/terraform-aws-org-new-account-trust-policy/compare/0.2.0...0.2.1)
