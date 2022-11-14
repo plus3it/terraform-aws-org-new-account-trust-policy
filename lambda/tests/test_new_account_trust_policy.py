@@ -15,7 +15,7 @@ import boto3
 from moto import mock_iam
 from moto import mock_sts
 from moto import mock_organizations
-from moto.core import ACCOUNT_ID
+from moto.core import DEFAULT_ACCOUNT_ID as ACCOUNT_ID
 import pytest
 
 import new_account_trust_policy as lambda_func
@@ -189,15 +189,30 @@ def test_invalid_trust_policy():
 
 
 def test_main_func_uncreated_role_arg(
-    sts_client, iam_client, initial_trust_policy, replacement_trust_policy
+    sts_client, iam_client, mock_event, initial_trust_policy, replacement_trust_policy
 ):
     """Invoke main() with a role name for a non-existent role."""
     assume_role_name = "TEST_TRUST_POLICY_NONEXISTENT_ROLE"
     update_role_name = "TEST_ROLE_DOES_NOT_EXIST"
 
+    # Assume role into new account where this role should exist
+    new_account_id = lambda_func.get_account_id(mock_event)
+    sts_response = sts_client.assume_role(
+        RoleArn=f"arn:aws:iam::{new_account_id}:role/OrganizationAccountAccessRole",
+        RoleSessionName="test-session-name",
+        ExternalId="test-external-id",
+    )
+    new_iam_client = boto3.client(
+        "iam",
+        aws_access_key_id=sts_response["Credentials"]["AccessKeyId"],
+        aws_secret_access_key=sts_response["Credentials"]["SecretAccessKey"],
+        aws_session_token=sts_response["Credentials"]["SessionToken"],
+        region_name=AWS_REGION,
+    )
+
     # Don't create role for bad role name as we don't want an error
     # for the creation of the role.
-    create_roles(iam_client, initial_trust_policy, [assume_role_name])
+    create_roles(new_iam_client, initial_trust_policy, [assume_role_name])
 
     with pytest.raises(lambda_func.TrustPolicyInvalidArgumentsError) as exc:
         lambda_func.main(
@@ -214,28 +229,47 @@ def test_main_func_uncreated_role_arg(
 def test_main_func_valid_arguments(
     sts_client,
     iam_client,
+    mock_event,
     initial_trust_policy,
     replacement_trust_policy,
 ):
     """Test the use of valid arguments for main()."""
     assume_role_name = "TEST_TRUST_POLICY_MAIN_VALID_ASSUME_ROLE"
     update_role_name = "TEST_TRUST_POLICY_MAIN_VALID_UPDATE_ROLE"
-    create_roles(iam_client, initial_trust_policy, [assume_role_name, update_role_name])
+
+    # Assume role into new account where this role should exist
+    new_account_id = lambda_func.get_account_id(mock_event)
+    sts_response = sts_client.assume_role(
+        RoleArn=f"arn:aws:iam::{new_account_id}:role/OrganizationAccountAccessRole",
+        RoleSessionName="test-session-name",
+        ExternalId="test-external-id",
+    )
+    new_iam_client = boto3.client(
+        "iam",
+        aws_access_key_id=sts_response["Credentials"]["AccessKeyId"],
+        aws_secret_access_key=sts_response["Credentials"]["SecretAccessKey"],
+        aws_session_token=sts_response["Credentials"]["SessionToken"],
+        region_name=AWS_REGION,
+    )
+
+    create_roles(
+        new_iam_client, initial_trust_policy, [assume_role_name, update_role_name]
+    )
 
     return_code = lambda_func.main(
-        role_arn=f"arn:aws:iam::{ACCOUNT_ID}:role/{assume_role_name}",
+        role_arn=f"arn:aws:iam::{new_account_id}:role/{assume_role_name}",
         role_name=update_role_name,
         trust_policy=replacement_trust_policy,
     )
     assert return_code == 0
 
     # Validate the assumed role's AssumeRolePolicyDocument is unchanged.
-    role_info = iam_client.get_role(RoleName=assume_role_name)
+    role_info = new_iam_client.get_role(RoleName=assume_role_name)
     assume_policy = json.dumps(role_info["Role"]["AssumeRolePolicyDocument"])
     assert assume_policy == initial_trust_policy
 
     # Validate the updated role's AssumeRolePolicyDocument has been updated.
-    role_info = iam_client.get_role(RoleName=update_role_name)
+    role_info = new_iam_client.get_role(RoleName=update_role_name)
     update_policy = json.dumps(role_info["Role"]["AssumeRolePolicyDocument"])
     assert update_policy == replacement_trust_policy
 
@@ -256,19 +290,36 @@ def test_lambda_handler_valid_arguments(
     monkeypatch.setenv("UPDATE_ROLE_NAME", update_role_name)
     monkeypatch.setenv("TRUST_POLICY", replacement_trust_policy)
 
-    create_roles(iam_client, initial_trust_policy, [assume_role_name, update_role_name])
+    # Assume role into new account where this role should exist
+    new_account_id = lambda_func.get_account_id(mock_event)
+    sts_response = sts_client.assume_role(
+        RoleArn=f"arn:aws:iam::{new_account_id}:role/OrganizationAccountAccessRole",
+        RoleSessionName="test-session-name",
+        ExternalId="test-external-id",
+    )
+    new_iam_client = boto3.client(
+        "iam",
+        aws_access_key_id=sts_response["Credentials"]["AccessKeyId"],
+        aws_secret_access_key=sts_response["Credentials"]["SecretAccessKey"],
+        aws_session_token=sts_response["Credentials"]["SessionToken"],
+        region_name=AWS_REGION,
+    )
+
+    create_roles(
+        new_iam_client, initial_trust_policy, [assume_role_name, update_role_name]
+    )
 
     # The lambda function doesn't return anything, so returning nothing versus
     # aborting with an exception is considered success.
     assert not lambda_func.lambda_handler(mock_event, lambda_context)
 
     # Validate the assumed role's AssumeRolePolicyDocument is unchanged.
-    role_info = iam_client.get_role(RoleName=assume_role_name)
+    role_info = new_iam_client.get_role(RoleName=assume_role_name)
     assume_policy = json.dumps(role_info["Role"]["AssumeRolePolicyDocument"])
     assert assume_policy == initial_trust_policy
 
     # Validate the updated role's AssumeRolePolicyDocument has been updated.
-    role_info = iam_client.get_role(RoleName=update_role_name)
+    role_info = new_iam_client.get_role(RoleName=update_role_name)
     update_policy = json.dumps(role_info["Role"]["AssumeRolePolicyDocument"])
     assert update_policy == replacement_trust_policy
 
@@ -288,14 +339,29 @@ def test_lambda_handler_same_roles(
     monkeypatch.setenv("UPDATE_ROLE_NAME", assume_role_name)
     monkeypatch.setenv("TRUST_POLICY", replacement_trust_policy)
 
-    create_roles(iam_client, initial_trust_policy, [assume_role_name])
+    # Assume role into new account where this role should exist
+    new_account_id = lambda_func.get_account_id(mock_event)
+    sts_response = sts_client.assume_role(
+        RoleArn=f"arn:aws:iam::{new_account_id}:role/OrganizationAccountAccessRole",
+        RoleSessionName="test-session-name",
+        ExternalId="test-external-id",
+    )
+    new_iam_client = boto3.client(
+        "iam",
+        aws_access_key_id=sts_response["Credentials"]["AccessKeyId"],
+        aws_secret_access_key=sts_response["Credentials"]["SecretAccessKey"],
+        aws_session_token=sts_response["Credentials"]["SessionToken"],
+        region_name=AWS_REGION,
+    )
+
+    create_roles(new_iam_client, initial_trust_policy, [assume_role_name])
 
     # The lambda function doesn't return anything, so returning nothing versus
     # aborting with an exception is considered success.
     assert not lambda_func.lambda_handler(mock_event, lambda_context)
 
     # Validate the assumed role's AssumeRolePolicyDocument has been updated.
-    role_info = iam_client.get_role(RoleName=assume_role_name)
+    role_info = new_iam_client.get_role(RoleName=assume_role_name)
     assume_policy = json.dumps(role_info["Role"]["AssumeRolePolicyDocument"])
     assert assume_policy == replacement_trust_policy
 
