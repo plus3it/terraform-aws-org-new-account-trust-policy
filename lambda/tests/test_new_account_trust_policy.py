@@ -12,6 +12,7 @@ import os
 import uuid
 
 import boto3
+import botocore.exceptions
 from moto import mock_iam
 from moto import mock_sts
 from moto import mock_organizations
@@ -97,24 +98,29 @@ def org_client(aws_credentials):
 def mock_event(org_client):
     """Create an event used as an argument to the Lambda handler."""
     org_client.create_organization(FeatureSet="ALL")
-    account_id = org_client.create_account(
-        AccountName=MOCK_ORG_NAME, Email=MOCK_ORG_EMAIL
-    )["CreateAccountStatus"]["Id"]
+    car_id = org_client.create_account(AccountName=MOCK_ORG_NAME, Email=MOCK_ORG_EMAIL)[
+        "CreateAccountStatus"
+    ]["Id"]
+    create_account_status = org_client.describe_create_account_status(
+        CreateAccountRequestId=car_id
+    )
     return {
         "version": "0",
         "id": str(uuid.uuid4()),
-        "detail-type": "AWS API Call via CloudTrail",
+        "detail-type": "AWS Service Event via CloudTrail",
         "source": "aws.organizations",
-        "account": "222222222222",
+        "account": ACCOUNT_ID,
         "time": datetime.now().isoformat(),
         "region": AWS_REGION,
         "resources": [],
         "detail": {
-            "eventName": "CreateAccount",
+            "eventName": "CreateAccountResult",
             "eventSource": "organizations.amazonaws.com",
-            "responseElements": {
+            "serviceEventDetails": {
                 "createAccountStatus": {
-                    "id": account_id,
+                    "accountId": create_account_status["CreateAccountStatus"][
+                        "AccountId"
+                    ]
                 }
             },
         },
@@ -173,7 +179,7 @@ def create_roles(
 
 def test_invalid_trust_policy():
     """Test an invalid JSON string for trust_policy argument."""
-    with pytest.raises(Exception) as exc:
+    with pytest.raises(json.decoder.JSONDecodeError) as exc:
         # JSON string is missing a bracket in the 'Statement' field.
         lambda_func.main(
             role_arn=f"arn:aws:iam::{ACCOUNT_ID}:root",
@@ -185,7 +191,7 @@ def test_invalid_trust_policy():
                 f'"Effect": "Allow"}}'
             ),
         )
-    assert "'trust-policy' contains badly formed JSON" in str(exc.value)
+    assert "Expecting ',' delimiter: line 1 column 144 (char 143)" in str(exc.value)
 
 
 def test_main_func_uncreated_role_arg(
@@ -214,9 +220,9 @@ def test_main_func_uncreated_role_arg(
     # for the creation of the role.
     create_roles(new_iam_client, initial_trust_policy, [assume_role_name])
 
-    with pytest.raises(lambda_func.TrustPolicyInvalidArgumentsError) as exc:
+    with pytest.raises(botocore.exceptions.ClientError) as exc:
         lambda_func.main(
-            role_arn=f"arn:aws:iam::{ACCOUNT_ID}:role/{assume_role_name}",
+            role_arn=f"arn:aws:iam::{new_account_id}:role/{assume_role_name}",
             role_name=update_role_name,
             trust_policy=replacement_trust_policy,
         )
@@ -256,12 +262,11 @@ def test_main_func_valid_arguments(
         new_iam_client, initial_trust_policy, [assume_role_name, update_role_name]
     )
 
-    return_code = lambda_func.main(
+    assert not lambda_func.main(
         role_arn=f"arn:aws:iam::{new_account_id}:role/{assume_role_name}",
         role_name=update_role_name,
         trust_policy=replacement_trust_policy,
     )
-    assert return_code == 0
 
     # Validate the assumed role's AssumeRolePolicyDocument is unchanged.
     role_info = new_iam_client.get_role(RoleName=assume_role_name)
