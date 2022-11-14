@@ -4,6 +4,23 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+### 1.0.0
+
+**Commit Delta**: [Change from 0.2.2 release](https://github.com/plus3it/terraform-aws-org-new-account-support-case/compare/0.2.2...1.0.0)
+
+**Released**: 2022.11.14
+
+**Summary**:
+
+*   Simplifies exception handling with a global handler that logs all exceptions
+*   Improves event pattern to eliminate loop/wait logic in lambda function.
+*   Separates the CreateAccountResult and InviteAccountToOrganization patterns into two event rules.
+*   Changed lambda module to one published by terraform-aws-modules, for better long-term support
+*   Exposed new `lambda` variable that wraps arguments for the upstream lambda module
+*   Added support for creating multiple instances of this module. This achieved by either:
+    *   Tailoring the artifact location, by setting `lambda.artifacts_dir` to a different location for each instance
+    *   Creating the package separately from the lambda functions, see `tests/test_create_package_separately` for an example
+
 ### 0.2.2
 
 **Commit Delta**: [Change from 0.2.1 release](https://github.com/plus3it/terraform-aws-org-new-account-trust-policy/compare/0.2.1...0.2.2)

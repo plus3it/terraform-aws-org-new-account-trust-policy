@@ -111,7 +111,11 @@ def tf_output(config_path, valid_trust_policy):
 
     # Use LocalStack to simulate the AWS stack.  "localstack.tf" contains
     # the endpoints and services information needed by LocalStack.
-    tf_test.setup(extra_files=[str(Path(Path.cwd() / "tests" / "localstack.tf"))])
+    tf_test.setup(
+        extra_files=[str(Path(Path.cwd() / "tests" / "localstack.tf"))],
+        upgrade=True,
+        cleanup_on_exit=False,
+    )
 
     tf_vars = {
         "assume_role_name": ASSUME_ROLE_NAME,
@@ -120,15 +124,9 @@ def tf_output(config_path, valid_trust_policy):
         "localstack_host": LOCALSTACK_HOST,
     }
 
-    try:
-        tf_test.apply(tf_vars=tf_vars)
-        yield tf_test.output(json_format=True)
-    except tftest.TerraformTestError as exc:
-        pytest.exit(
-            msg=f"Catastropic error running Terraform 'apply':  {exc}", returncode=1
-        )
-    finally:
-        tf_test.destroy(tf_vars=tf_vars)
+    tf_test.apply(tf_vars=tf_vars)
+    yield tf_test.output(json_format=True)
+    tf_test.destroy(tf_vars=tf_vars)
 
 
 def test_outputs(tf_output):
@@ -144,16 +142,19 @@ def test_outputs(tf_output):
     prefix = "new-account-trust-policy"
 
     lambda_module = tf_output["lambda"]
-    assert lambda_module["function_name"].startswith(prefix)
+    assert lambda_module["lambda_function_name"].startswith(prefix)
 
     event_rule_output = tf_output["aws_cloudwatch_event_rule"]
-    assert event_rule_output["name"].startswith(prefix)
+    for _, event_rule in event_rule_output.items():
+        assert event_rule["name"].startswith(prefix)
 
     event_target_output = tf_output["aws_cloudwatch_event_target"]
-    assert event_target_output["rule"].startswith(prefix)
+    for _, event_target in event_target_output.items():
+        assert event_target["rule"].startswith(prefix)
 
     permission_events_output = tf_output["aws_lambda_permission_events"]
-    assert permission_events_output["function_name"].startswith(prefix)
+    for _, lambda_permission in permission_events_output.items():
+        assert lambda_permission["function_name"].startswith(prefix)
 
 
 def test_lambda_dry_run(tf_output, localstack_session):
@@ -161,7 +162,7 @@ def test_lambda_dry_run(tf_output, localstack_session):
     lambda_client = localstack_session.client("lambda", region_name=AWS_DEFAULT_REGION)
     lambda_module = tf_output["lambda"]
     response = lambda_client.invoke(
-        FunctionName=lambda_module["function_name"],
+        FunctionName=lambda_module["lambda_function_name"],
         InvocationType="DryRun",
     )
     assert response["StatusCode"] == 204
@@ -178,7 +179,7 @@ def test_lambda_invocation(tf_output, localstack_session, mock_event):
     lambda_client = localstack_session.client("lambda", region_name=AWS_DEFAULT_REGION)
     lambda_module = tf_output["lambda"]
     response = lambda_client.invoke(
-        FunctionName=lambda_module["function_name"],
+        FunctionName=lambda_module["lambda_function_name"],
         InvocationType="RequestResponse",
         Payload=json.dumps(mock_event),
     )
