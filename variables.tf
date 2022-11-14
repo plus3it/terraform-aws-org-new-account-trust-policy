@@ -13,6 +13,20 @@ variable "trust_policy" {
   type        = string
 }
 
+variable "event_types" {
+  description = "Event types that will trigger this lambda"
+  type        = set(string)
+  default = [
+    "CreateAccountResult",
+    "InviteAccountToOrganization",
+  ]
+
+  validation {
+    condition     = alltrue([for event in var.event_types : contains(["CreateAccountResult", "InviteAccountToOrganization"], event)])
+    error_message = "Supported event_types include only: CreateAccountResult, InviteAccountToOrganization"
+  }
+}
+
 variable "lambda" {
   description = "Map of any additional arguments for the upstream lambda module. See <https://github.com/terraform-aws-modules/terraform-aws-lambda>"
   type        = any
