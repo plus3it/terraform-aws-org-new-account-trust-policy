@@ -4,12 +4,10 @@ import argparse
 import json
 import os
 import sys
-import time
 
 from aws_lambda_powertools import Logger
 from aws_assume_role_lib import assume_role, generate_lambda_session_name
 import boto3
-import botocore
 
 LOG_LEVEL = os.environ.get("LOG_LEVEL", "info")
 
@@ -31,32 +29,19 @@ class TrustPolicyInvalidArgumentsError(Exception):
 # Logic specific to handling the event provided to the Lambda handler.
 
 
-class AccountCreationFailedException(Exception):
-    """Account creation failed."""
+def exception_hook(exc_type, exc_value, exc_traceback):
+    """Log all exceptions with hook for sys.excepthook."""
+    LOG.exception(
+        "%s: %s",
+        exc_type.__name__,
+        exc_value,
+        exc_info=(exc_type, exc_value, exc_traceback),
+    )
 
 
 def get_new_account_id(event):
     """Return account id for new account events."""
-    create_account_status_id = (
-        event["detail"]
-        .get("responseElements", {})
-        .get("createAccountStatus", {})["id"]  # fmt: no
-    )
-    LOG.info("createAccountStatus = %s", create_account_status_id)
-
-    org = boto3.client("organizations")
-    while True:
-        account_status = org.describe_create_account_status(
-            CreateAccountRequestId=create_account_status_id
-        )
-        state = account_status["CreateAccountStatus"]["State"].upper()
-        if state == "SUCCEEDED":
-            return account_status["CreateAccountStatus"]["AccountId"]
-        if state == "FAILED":
-            LOG.error("Account creation failed:\n%s", json.dumps(account_status))
-            raise AccountCreationFailedException
-        LOG.info("Account state: %s. Sleeping 5 seconds and will try again...", state)
-        time.sleep(5)
+    return event["detail"]["serviceEventDetails"]["createAccountStatus"]["accountId"]
 
 
 def get_invite_account_id(event):
@@ -68,8 +53,7 @@ def get_account_id(event):
     """Return account id for supported events."""
     event_name = event["detail"]["eventName"]
     get_account_id_strategy = {
-        "CreateAccount": get_new_account_id,
-        "CreateGovCloudAccount": get_new_account_id,
+        "CreateAccountResult": get_new_account_id,
         "InviteAccountToOrganization": get_invite_account_id,
     }
 
@@ -87,14 +71,24 @@ def get_partition():
 
 def get_session(assume_role_arn):
     """Return boto3 session established using a role arn or AWS profile."""
+    if not assume_role_arn:
+        return boto3.session.Session()
+
     function_name = os.environ.get(
         "AWS_LAMBDA_FUNCTION_NAME", os.path.basename(__file__)
     )
+
+    LOG.info(
+        {
+            "comment": f"Assuming role ARN ({assume_role_arn})",
+            "assume_role_arn": assume_role_arn,
+        }
+    )
+
     return assume_role(
         boto3.Session(),
         assume_role_arn,
         RoleSessionName=generate_lambda_session_name(function_name),
-        DurationSeconds=3600,
         validate=False,
     )
 
@@ -103,36 +97,23 @@ def main(role_arn, role_name, trust_policy):
     """Assume role and update role trust policy."""
     # Validate trust policy contains properly formatted JSON.  This is
     # not a validation against a schema, so the JSON could still be bad.
-    try:
-        json.loads(trust_policy)
-    except json.decoder.JSONDecodeError as exc:
-        # pylint: disable=raise-missing-from
-        raise TrustPolicyInvalidArgumentsError(
-            f"'trust-policy' contains badly formed JSON: {exc}"
-        )
+    json.loads(trust_policy)
 
     # Create a session using an assumed role in the new account.
-    assumed_role_session = get_session(role_arn)
+    session = get_session(role_arn)
 
     # Update the role trust policy.
-    iam_client = assumed_role_session.client("iam")
-    try:
-        iam_client.update_assume_role_policy(
-            RoleName=role_name, PolicyDocument=trust_policy
-        )
-    except (
-        botocore.exceptions.ClientError,
-        botocore.parsers.ResponseParserError,
-    ) as exc:
-        LOG.error(
-            {
-                "role_name": role_name,
-                "failure_msg": "Unable to update assume role policy",
-                "failure": exc,
-            }
-        )
-        raise TrustPolicyInvalidArgumentsError(exc) from exc
-    return 0
+    LOG.info(
+        {
+            "comment": f"Updating IAM role ({role_name})",
+            "role_name": role_name,
+            "trust_policy": trust_policy,
+        }
+    )
+    iam_client = session.client("iam")
+    iam_client.update_assume_role_policy(
+        RoleName=role_name, PolicyDocument=trust_policy
+    )
 
 
 def check_for_null_envvars(assume_role_name, update_role_name, trust_policy):
@@ -182,17 +163,16 @@ def lambda_handler(event, context):  # pylint: disable=unused-argument
     if os.environ.get("LOCALSTACK_HOSTNAME"):
         return
 
-    try:
-        account_id = get_account_id(event)
-        partition = get_partition()
-        role_arn = f"arn:{partition}:iam::{account_id}:role/{assume_role_name}"
+    account_id = get_account_id(event)
+    partition = get_partition()
+    role_arn = f"arn:{partition}:iam::{account_id}:role/{assume_role_name}"
 
-        # Assume the role and update the role trust policy.
-        main(role_arn, update_role_name, trust_policy)
-    except Exception as exc:
-        LOG.critical("Caught error: %s", exc, exc_info=exc)
-        raise
+    # Assume the role and update the role trust policy.
+    main(role_arn, update_role_name, trust_policy)
 
+
+# Configure exception handler
+sys.excepthook = exception_hook
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
