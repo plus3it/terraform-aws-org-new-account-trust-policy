@@ -13,6 +13,12 @@ variable "trust_policy" {
   type        = string
 }
 
+variable "lambda" {
+  description = "Map of any additional arguments for the upstream lambda module. See <https://github.com/terraform-aws-modules/terraform-aws-lambda>"
+  type        = any
+  default     = {}
+}
+
 variable "log_level" {
   default     = "info"
   description = "Log level of the lambda output, one of: debug, info, warning, error, critical"

@@ -1,7 +1,3 @@
-terraform {
-  required_version = ">= 0.12"
-}
-
 locals {
   name = "new-account-trust-policy-${random_string.id.result}"
 }
@@ -36,24 +32,39 @@ resource "random_string" "id" {
 }
 
 module "lambda" {
-  source = "git::https://github.com/plus3it/terraform-aws-lambda.git?ref=v1.3.0"
+  source = "git::https://github.com/terraform-aws-modules/terraform-aws-lambda.git?ref=v4.7.1"
 
   function_name = local.name
-  description   = "Update trust policy on IAM Account Role"
-  handler       = "new_account_trust_policy.lambda_handler"
-  policy        = data.aws_iam_policy_document.lambda
-  runtime       = "python3.6"
-  source_path   = "${path.module}/lambda/src"
-  tags          = var.tags
-  timeout       = 300
 
-  environment = {
-    variables = {
-      ASSUME_ROLE_NAME = var.assume_role_name
-      UPDATE_ROLE_NAME = var.update_role_name
-      TRUST_POLICY     = var.trust_policy
-      LOG_LEVEL        = var.log_level
+  description = "Update trust policy on IAM Account Role"
+  handler     = "new_account_trust_policy.lambda_handler"
+  runtime     = "python3.8"
+  tags        = var.tags
+  timeout     = 300
+
+  attach_policy_json = true
+  policy_json        = data.aws_iam_policy_document.lambda.json
+
+  source_path = [
+    {
+      path             = "${path.module}/lambda/src"
+      pip_requirements = true
+      patterns         = try(var.lambda.source_patterns, ["!\\.terragrunt-source-manifest"])
     }
+  ]
+
+  artifacts_dir            = try(var.lambda.artifacts_dir, "builds")
+  create_package           = try(var.lambda.create_package, true)
+  ignore_source_code_hash  = try(var.lambda.ignore_source_code_hash, true)
+  local_existing_package   = try(var.lambda.local_existing_package, null)
+  recreate_missing_package = try(var.lambda.recreate_missing_package, false)
+  ephemeral_storage_size   = try(var.lambda.ephemeral_storage_size, null)
+
+  environment_variables = {
+    ASSUME_ROLE_NAME = var.assume_role_name
+    UPDATE_ROLE_NAME = var.update_role_name
+    TRUST_POLICY     = var.trust_policy
+    LOG_LEVEL        = var.log_level
   }
 }
 
@@ -79,12 +90,12 @@ resource "aws_cloudwatch_event_rule" "this" {
 
 resource "aws_cloudwatch_event_target" "this" {
   rule = aws_cloudwatch_event_rule.this.name
-  arn  = module.lambda.function_arn
+  arn  = module.lambda.lambda_function_arn
 }
 
 resource "aws_lambda_permission" "events" {
   action        = "lambda:InvokeFunction"
-  function_name = module.lambda.function_name
+  function_name = module.lambda.lambda_function_name
   principal     = "events.amazonaws.com"
   source_arn    = aws_cloudwatch_event_rule.this.arn
 }
