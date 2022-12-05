@@ -2,4 +2,4 @@
 
 localstack-client==1.39
 
-tftest==1.8.0
+tftest==1.8.1
