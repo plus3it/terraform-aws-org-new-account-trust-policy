@@ -28,9 +28,10 @@ jobs:
     - stage: test
       name: Run integration tests against a mock AWS stack
       install:
+        - python -m pip install -r requirements/requirements_ci.txt
         - make docker-compose/install
         - make mockstack/up
-      script: make mockstack/pytest/lambda
+      script: travis-wait-improved --timeout 60m make mockstack/pytest/lambda
       after_script: make mockstack/clean
     - stage: deploy
       if: branch = master AND type = push AND repo = plus3it/terraform-aws-org-new-account-trust-policy

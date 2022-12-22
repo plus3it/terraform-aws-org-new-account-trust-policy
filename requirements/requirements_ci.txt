@@ -1,0 +1,1 @@
+travis-wait-improved==1.0.0
