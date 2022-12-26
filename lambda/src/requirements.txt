@@ -1,4 +1,4 @@
-aws-lambda-powertools==2.4.0
+aws-lambda-powertools==2.5.0
 
 aws-assume-role-lib==2.10.0
 
