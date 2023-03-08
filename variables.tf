@@ -30,7 +30,6 @@ variable "event_types" {
 variable "lambda" {
   description = "Map of any additional arguments for the upstream lambda module. See <https://github.com/terraform-aws-modules/terraform-aws-lambda>"
   type = object({
-  type = object({
     artifacts_dir            = optional(string, "builds")
     create_package           = optional(bool, true)
     ephemeral_storage_size   = optional(number)
@@ -41,7 +40,6 @@ variable "lambda" {
     s3_existing_package      = optional(map(string))
     s3_prefix                = optional(string)
     store_on_s3              = optional(bool, false)
-  })
   })
   default = {}
 }
