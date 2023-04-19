@@ -66,8 +66,6 @@ locals {
   event_types = {
     CreateAccountResult = jsonencode(
       {
-        "source" : ["aws.organizations"],
-        "detail-type" : ["AWS Service Event via CloudTrail"]
         "detail" : {
           "eventSource" : ["organizations.amazonaws.com"],
           "eventName" : ["CreateAccountResult"]
@@ -81,8 +79,6 @@ locals {
     )
     InviteAccountToOrganization = jsonencode(
       {
-        "source" : ["aws.organizations"],
-        "detail-type" : ["AWS API Call via CloudTrail"]
         "detail" : {
           "eventSource" : ["organizations.amazonaws.com"],
           "eventName" : ["InviteAccountToOrganization"]
