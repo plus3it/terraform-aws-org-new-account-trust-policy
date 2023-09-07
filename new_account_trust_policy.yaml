@@ -64,7 +64,7 @@ Resources:
         Statement:
           - Effect: Allow
             Action:
-            - organizations:DescribeCreateAccountStatus
+              - organizations:DescribeCreateAccountStatus
             Resource: "*"
           - Effect: Allow
             Action:
