@@ -14,7 +14,6 @@ provider "aws" {
     lambda           = "http://${var.localstack_host}:4566"
     iam              = "http://${var.localstack_host}:4566"
     sts              = "http://${var.localstack_host}:4566"
-    organizations    = "http://${var.localstack_host}:4615"
   }
 }
 
