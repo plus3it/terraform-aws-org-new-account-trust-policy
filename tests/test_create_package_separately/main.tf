@@ -1,5 +1,5 @@
 module "test_create_package" {
-  source = "git::https://github.com/terraform-aws-modules/terraform-aws-lambda.git?ref=v6.0.1"
+  source = "git::https://github.com/terraform-aws-modules/terraform-aws-lambda.git?ref=v6.2.0"
 
   create_function = false
   create_package  = true
