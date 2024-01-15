@@ -22,7 +22,7 @@ resource "random_string" "id" {
 }
 
 module "lambda" {
-  source = "git::https://github.com/terraform-aws-modules/terraform-aws-lambda.git?ref=v6.5.0"
+  source = "git::https://github.com/terraform-aws-modules/terraform-aws-lambda.git?ref=v6.7.0"
 
   function_name = local.name
 
