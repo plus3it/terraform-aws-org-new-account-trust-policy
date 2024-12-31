@@ -286,7 +286,7 @@ def test_lambda_handler_valid_arguments(
     initial_trust_policy,
     replacement_trust_policy,
     monkeypatch,
-):  # pylint: disable=too-many-arguments
+):  # pylint: disable=too-many-arguments,too-many-positional-arguments
     """Invoke the lambda handler with only valid arguments."""
     assume_role_name = "TEST_TRUST_POLICY_VALID_ASSUME_ROLE"
     update_role_name = "TEST_TRUST_POLICY_VALID_UPDATE_ROLE"
@@ -336,7 +336,7 @@ def test_lambda_handler_same_roles(
     initial_trust_policy,
     replacement_trust_policy,
     monkeypatch,
-):  # pylint: disable=too-many-arguments
+):  # pylint: disable=too-many-arguments,too-many-positional-arguments
     """Invoke the lambda handler with the same assume and update role."""
     assume_role_name = "TEST_TRUST_POLICY_VALID_ROLE"
     monkeypatch.setenv("ASSUME_ROLE_NAME", assume_role_name)
