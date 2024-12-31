@@ -28,7 +28,7 @@ module "lambda" {
 
   description = "Update trust policy on IAM Account Role"
   handler     = "new_account_trust_policy.lambda_handler"
-  runtime     = "python3.8"
+  runtime     = var.lambda.runtime
   tags        = var.tags
   timeout     = 300
 
