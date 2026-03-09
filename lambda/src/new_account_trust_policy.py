@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Respond to new account events by updating trust policy in the account."""
+
 import argparse
 import json
 import os
