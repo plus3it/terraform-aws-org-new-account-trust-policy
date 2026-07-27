@@ -1,5 +1,5 @@
 -r ./requirements_common.txt
 
-localstack-client==2.11
+localstack-client==2.12
 
 tftest==1.8.8
